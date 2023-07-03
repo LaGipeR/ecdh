@@ -11,23 +11,30 @@ pub struct SharedSecret {
 
 impl SharedSecret {
     pub fn new() -> SharedSecret {
-
         let a = LongInt::new(); // 0
         let b = LongInt::from_hex("7"); // 7
-        let p = LongInt::from_hex("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F");
+        let p =
+            LongInt::from_hex("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F"); // 2^256 - 2^32 - 2^9 - 2^8 - 2^7 - 2^6 - 2^4 - 1
 
-        let group = Group::new(&a, &b, &p);
+        let mut group = Group::new(&a, &b, &p);
 
-        Self::new_with_group(&group)
+        let gen_point = Point::from_string(&group, "0479BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798483ADA7726A3C4655DA4FBFC0E1108A8FD17B448A68554199C47D08FFB10D4B8");
+        let order =
+            LongInt::from_hex("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141");
+        let cofactor = LongInt::from_hex("01");
+
+        group.set_generator(&gen_point, &order, &cofactor);
+
+        Self::new_with_group(group)
     }
 
-    pub fn new_with_group(group: &Group) -> SharedSecret {
-        let n = group.degree();
+    pub fn new_with_group(group: Group) -> SharedSecret {
+        let n = group.get_order();
         let mut gen = RandGen::new_from_time();
         let one = LongInt::from_hex("1");
         SharedSecret {
             secret_key: gen.next_long_int(&one, &(&n - &one)),
-            group: group.clone(),
+            group,
         }
     }
 
@@ -46,7 +53,6 @@ impl SharedSecret {
 
 #[cfg(test)]
 mod tests {
-    use core::panicking::assert_failed;
     use crate::SharedSecret;
 
     #[test]
@@ -60,6 +66,6 @@ mod tests {
         let alice_ss = alice.generate_shared_secret(&bob_pk);
         let bob_ss = bob.generate_shared_secret(&alice_pk);
 
-        assert_eq!(alice_ss, bob_ss);
+        assert_eq!(alice_ss.to_string(), bob_ss.to_string());
     }
 }
